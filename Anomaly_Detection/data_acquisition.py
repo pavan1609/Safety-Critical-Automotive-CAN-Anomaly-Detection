@@ -2,6 +2,46 @@ import pandas as pd
 import io
 import requests
 import logging
+import pandas as pd
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def load_public_transport_data(filepath="hourly_transport_demand.csv"):
+    """
+    Loads the public transport demand dataset.
+
+    Args:
+        filepath (str): The path to the dataset file.
+
+    Returns:
+        pd.DataFrame: The loaded DataFrame, or None if an error occurs.
+    """
+    try:
+        logging.info(f"Loading data from: {filepath}")
+        data = pd.read_csv(filepath, index_col="Datetime", parse_dates=True)
+        logging.info("Data loaded successfully.")
+        return data
+    except FileNotFoundError:
+        logging.error(f"Error: Dataset file not found at {filepath}")
+        return None
+    except Exception as e:
+        logging.error(f"Error loading data: {e}")
+        return None
+
+if __name__ == "__main__":
+    transport_data = load_public_transport_data()
+    if transport_data is not None:
+        logging.info("Data acquisition completed.")
+        logging.info(f"Shape of the DataFrame: {transport_data.shape}")
+        logging.info(f"Column names: {transport_data.columns.tolist()}")
+        logging.info("First 5 rows:")
+        logging.info(transport_data.head())
+        logging.info("Data types:")
+        logging.info(transport_data.info())
+    else:
+        logging.error("Data acquisition failed.")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
