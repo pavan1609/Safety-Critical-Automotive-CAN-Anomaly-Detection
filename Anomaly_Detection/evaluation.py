@@ -1,54 +1,92 @@
 import logging
 import matplotlib.pyplot as plt
-import numpy as np
-from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc
-from anomaly_detection import load_model, detect_anomalies
+import pandas as pd
+from sklearn.metrics import (
+    mean_absolute_error,
+    mean_squared_error,
+    r2_score,
+    mean_absolute_percentage_error,
+    explained_variance_score,
+    median_absolute_error,
+)
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from anomaly_detection import load_model, make_predictions
 from data_preprocessing import preprocess_data
-from data_acquisition import load_car_evaluation_data
+from data_acquisition import load_public_transport_data
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-def evaluate_model(model, X_test, y_test):
+
+def evaluate_predictions(predictions, actual, target_column):
     """
-    Evaluates the model's performance using classification metrics and visualizations.
+    Evaluates the predictions using various metrics and visualizations.
 
     Args:
-        model: The trained anomaly detection model.
-        X_test: The test data features.
-        y_test: The true labels for the test data.
+        predictions (pd.DataFrame): The DataFrame with predictions.
+        actual (pd.DataFrame): The DataFrame with actual values.
+        target_column (str): The name of the target column.
     """
-    logging.info("Evaluating model...")
-    anomaly_scores = detect_anomalies(model, X_test)
-    # Convert anomaly scores to binary predictions (anomalies vs. normal)
-    predictions = (anomaly_scores < 0).astype(int)
+    logging.info("Evaluating predictions...")
 
-    # Print classification report and confusion matrix
-    logging.info("Classification Report:\n" + classification_report(y_test, predictions))
-    logging.info("Confusion Matrix:\n" + str(confusion_matrix(y_test, predictions)))
+    # Calculate metrics
+    mae = mean_absolute_error(actual[target_column], predictions["Prediction"])
+    rmse = mean_squared_error(actual[target_column], predictions["Prediction"], squared=False)
+    r2 = r2_score(actual[target_column], predictions["Prediction"])
+    mape = mean_absolute_percentage_error(actual[target_column], predictions["Prediction"])
+    explained_variance = explained_variance_score(
+        actual[target_column], predictions["Prediction"]
+    )
+    medae = median_absolute_error(actual[target_column], predictions["Prediction"])
 
-    # Plot ROC curve
-    fpr, tpr, thresholds = roc_curve(y_test, -anomaly_scores) #negative anomaly scores, because ROC curve expects higher scores for positive classes
-    roc_auc = auc(fpr, tpr)
+    logging.info(f"Mean Absolute Error (MAE): {mae}")
+    logging.info(f"Root Mean Squared Error (RMSE): {rmse}")
+    logging.info(f"R-squared (R2): {r2}")
+    logging.info(f"Mean Absolute Percentage Error (MAPE): {mape}")
+    logging.info(f"Explained Variance Score: {explained_variance}")
+    logging.info(f"Median Absolute Error (MedAE): {medae}")
 
-    plt.figure()
-    plt.plot(fpr, tpr, label=f'ROC curve (area = {roc_auc:.2f})')
-    plt.plot([0, 1], [0, 1], 'k--')
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('Receiver Operating Characteristic (ROC)')
-    plt.legend(loc="lower right")
+    # Create visualizations
+    plt.figure(figsize=(12, 6))
+    plt.plot(actual[target_column], label="Actual")
+    plt.plot(predictions["Prediction"], label="Prediction")
+    plt.legend()
+    plt.title("Actual vs. Predicted Values")
     plt.show()
 
-    logging.info("Model evaluation completed.")
+    # Plot residuals
+    residuals = actual[target_column] - predictions["Prediction"]
+    plt.figure(figsize=(12, 6))
+    plt.plot(residuals)
+    plt.title("Residuals")
+    plt.show()
+
+    # Histogram of residuals
+    plt.figure(figsize=(12, 6))
+    plt.hist(residuals, bins=20)
+    plt.title("Histogram of Residuals")
+    plt.show()
+
+    # ACF and PACF plots of residuals
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    plot_acf(residuals, ax=axes)
+    plot_pacf(residuals, ax=axes)
+    plt.tight_layout()
+    plt.show()
+
+    logging.info("Evaluation completed.")
+
 
 if __name__ == "__main__":
-    car_data = load_car_evaluation_data()
-    if car_data is not None:
-        X_train, X_test, y_train, y_test = preprocess_data(car_data.copy())
+    transport_data = load_public_transport_data()
+    if transport_data is not None:
+        target_column = "Count"  # Replace with the actual target column name
+        train_data = transport_data.iloc[:-24]  # Use all but the last 24 hours for training
+        test_data = transport_data.iloc[-24:]  # Use the last 24 hours for testing
+        preprocessed_train_data = preprocess_data(train_data.copy(), target_column)
+        preprocessed_test_data = preprocess_data(test_data.copy(), target_column)
         model = load_model()
-        evaluate_model(model, X_test, y_test)
+        predictions = make_predictions(model, preprocessed_test_data, target_column)
+        evaluate_predictions(predictions, test_data, target_column)
     else:
-        logging.error("Model evaluation failed due to data loading error.")
+        logging.error("Evaluation failed due to data loading error.")
