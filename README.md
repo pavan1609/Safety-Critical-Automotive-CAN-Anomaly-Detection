@@ -1,9 +1,8 @@
 # Safety-Critical-Automotive-CAN-Anomaly-Detection
-Developed safety-critical firmware for a simulated automotive CAN bus network (CANoe) with sensor applications, adhering to J1939. Implemented a ML based anomaly detection system to enhance real-time fault tolerance.
 
 ## Abstract
 
-This paper presents a study on forecasting hourly public transport demand using the Prophet model. The study utilizes a dataset of hourly passenger counts for various transport modes in an urban environment. Feature engineering techniques are employed to enhance the dataset, and the Prophet model is trained to predict future demand. A comprehensive evaluation is conducted, including a range of metrics, visualizations, and statistical tests, to assess the model's performance and identify areas for potential improvement.
+This project presents a study on forecasting hourly public transport demand using the Prophet model. The study utilizes a dataset of hourly passenger counts for various transport modes in an urban environment. Feature engineering techniques are employed to enhance the dataset, and the Prophet model is trained to predict future demand. A comprehensive evaluation is conducted, including a range of metrics, visualizations, and statistical tests, to assess the model's performance and identify areas for potential improvement.
 
 ## 1. Introduction
 
