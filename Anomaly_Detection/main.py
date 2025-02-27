@@ -1,33 +1,37 @@
 import logging
-from data_acquisition import load_car_evaluation_data
+from data_acquisition import load_public_transport_data
 from data_preprocessing import preprocess_data
-from model_training import train_isolation_forest, save_model
-from anomaly_detection import load_model, detect_anomalies
-from evaluation import evaluate_model
+from model_training import train_prophet_model, save_model
+from anomaly_detection import load_model, make_predictions
+from evaluation import evaluate_predictions
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 if __name__ == "__main__":
-    logging.info("Starting anomaly detection workflow...")
+    logging.info("Starting time series forecasting workflow...")
 
     # 1. Data Acquisition
-    car_data = load_car_evaluation_data()
-    if car_data is None:
+    transport_data = load_public_transport_data()
+    if transport_data is None:
         logging.error("Data acquisition failed. Exiting.")
         exit(1)
 
     # 2. Data Preprocessing
-    X_train, X_test, y_train, y_test = preprocess_data(car_data.copy())
+    target_column = "Count"  # Replace with the actual target column name
+    train_data = transport_data.iloc[:-24]  # Use all but the last 24 hours for training
+    test_data = transport_data.iloc[-24:]  # Use the last 24 hours for testing
+    preprocessed_train_data = preprocess_data(train_data.copy(), target_column)
+    preprocessed_test_data = preprocess_data(test_data.copy(), target_column)
 
     # 3. Model Training
-    model = train_isolation_forest(X_train)
+    model = train_prophet_model(preprocessed_train_data, target_column)
     save_model(model)
 
-    # 4. Anomaly Detection
-    anomaly_scores = detect_anomalies(model, X_test)
+    # 4. Prediction
+    predictions = make_predictions(model, preprocessed_test_data, target_column)
 
     # 5. Evaluation
-    evaluate_model(model, X_test, y_test)
+    evaluate_predictions(predictions, test_data, target_column)
 
-    logging.info("Anomaly detection workflow completed successfully.")
+    logging.info("Time series forecasting workflow completed successfully.")
