@@ -1,6 +1,7 @@
 import logging
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 from sklearn.metrics import (
     mean_absolute_error,
     mean_squared_error,
@@ -8,8 +9,11 @@ from sklearn.metrics import (
     mean_absolute_percentage_error,
     explained_variance_score,
     median_absolute_error,
+    mean_squared_log_error,
 )
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from statsmodels.tsa.stattools import adfuller, kpss
+from scipy.stats import shapiro, probplot, boxcox
 from anomaly_detection import load_model, make_predictions
 from data_preprocessing import preprocess_data
 from data_acquisition import load_public_transport_data
@@ -20,7 +24,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 def evaluate_predictions(predictions, actual, target_column):
     """
-    Evaluates the predictions using various metrics and visualizations.
+    Evaluates the predictions using various metrics, visualizations, and statistical tests.
 
     Args:
         predictions (pd.DataFrame): The DataFrame with predictions.
@@ -38,6 +42,11 @@ def evaluate_predictions(predictions, actual, target_column):
         actual[target_column], predictions["Prediction"]
     )
     medae = median_absolute_error(actual[target_column], predictions["Prediction"])
+    try:
+        msle = mean_squared_log_error(actual[target_column], predictions["Prediction"])
+    except ValueError:
+        logging.warning("MSLE calculation failed due to negative or zero values.")
+        msle = None
 
     logging.info(f"Mean Absolute Error (MAE): {mae}")
     logging.info(f"Root Mean Squared Error (RMSE): {rmse}")
@@ -45,6 +54,8 @@ def evaluate_predictions(predictions, actual, target_column):
     logging.info(f"Mean Absolute Percentage Error (MAPE): {mape}")
     logging.info(f"Explained Variance Score: {explained_variance}")
     logging.info(f"Median Absolute Error (MedAE): {medae}")
+    if msle is not None:
+        logging.info(f"Mean Squared Log Error (MSLE): {msle}")
 
     # Create visualizations
     plt.figure(figsize=(12, 6))
@@ -74,6 +85,42 @@ def evaluate_predictions(predictions, actual, target_column):
     plt.tight_layout()
     plt.show()
 
+    # Q-Q plot of residuals
+    plt.figure(figsize=(12, 6))
+    probplot(residuals, dist="norm", plot=plt)
+    plt.title("Q-Q Plot of Residuals")
+    plt.show()
+
+    # Shapiro-Wilk test for normality of residuals
+    shapiro_test_stat, shapiro_p_value = shapiro(residuals)
+    logging.info(f"Shapiro-Wilk Test for Normality (Residuals):")
+    logging.info(f"  Test Statistic: {shapiro_test_stat}")
+    logging.info(f"  P-value: {shapiro_p_value}")
+
+    # Box-Cox transformation of target variable
+    try:
+        transformed_actual, lambda_value = boxcox(actual[target_column])
+        logging.info(f"Box-Cox Transformation (lambda = {lambda_value}):")
+        plt.figure(figsize=(12, 6))
+        plt.hist(transformed_actual, bins=20)
+        plt.title("Histogram of Transformed Actual Values")
+        plt.show()
+    except ValueError:
+        logging.warning("Box-Cox transformation failed due to non-positive values.")
+
+    # Stationarity tests (ADF and KPSS)
+    adf_result = adfuller(actual[target_column])
+    kpss_result = kpss(actual[target_column], regression="c", nlags="auto")
+    logging.info("Stationarity Tests:")
+    logging.info("  Augmented Dickey-Fuller (ADF) Test:")
+    logging.info(f"    Test Statistic: {adf_result}")
+    logging.info(f"    P-value: {adf_result}")
+    logging.info(f"    Critical Values: {adf_result}")
+    logging.info("  Kwiatkowski-Phillips-Schmidt-Shin (KPSS) Test:")
+    logging.info(f"    Test Statistic: {kpss_result}")
+    logging.info(f"    P-value: {kpss_result}")
+    logging.info(f"    Critical Values: {kpss_result}")
+
     logging.info("Evaluation completed.")
 
 
@@ -81,7 +128,9 @@ if __name__ == "__main__":
     transport_data = load_public_transport_data()
     if transport_data is not None:
         target_column = "Count"  # Replace with the actual target column name
-        train_data = transport_data.iloc[:-24]  # Use all but the last 24 hours for training
+        train_data = transport_data.iloc[
+            :-24
+        ]  # Use all but the last 24 hours for training
         test_data = transport_data.iloc[-24:]  # Use the last 24 hours for testing
         preprocessed_train_data = preprocess_data(train_data.copy(), target_column)
         preprocessed_test_data = preprocess_data(test_data.copy(), target_column)
