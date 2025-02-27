@@ -76,6 +76,6 @@ This study demonstrates the effectiveness of the Prophet model in forecasting pu
 
 ## 7. Code and Reproducibility
 
-The code for this project is available on GitHub: [GitHub Repository Link]
+The code for this project is available on GitHub: [[GitHub Repository Link]](https://github.com/pavan1609/Safety-Critical-Automotive-CAN-Anomaly-Detection/tree/main)
 
 The repository includes detailed instructions on how to reproduce the results and conduct further experiments.
