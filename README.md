@@ -73,7 +73,7 @@ This study demonstrates the effectiveness of the Prophet model in forecasting pu
 ## 6. References
 
 * Prophet: https://facebook.github.io/prophet/
-* Hourly Public Transport Demand Dataset: [Kaggle Dataset Link]
+* Hourly Public Transport Demand Dataset: [[Kaggle Dataset Link]](https://www.kaggle.com/datasets/serdargundogdu/municipality-bus-utilization/code)
 
 ## 7. Code and Reproducibility
 
