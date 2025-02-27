@@ -1,70 +1,74 @@
 import logging
+from prophet import Prophet
 import joblib
 import pandas as pd
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 from data_preprocessing import preprocess_data
-from data_acquisition import load_car_evaluation_data
+from data_acquisition import load_public_transport_data
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def load_model(filepath="isolation_forest_model.joblib"):
+def load_model(filepath="prophet_model.joblib"):
     """
-    Loads the trained Isolation Forest model from a file.
+    Loads the trained Prophet model from a file.
 
     Args:
         filepath (str): The path to the saved model.
 
     Returns:
-        IsolationForest: The loaded model.
+        Prophet: The loaded Prophet model.
     """
     logging.info(f"Loading model from: {filepath}")
     model = joblib.load(filepath)
     logging.info("Model loaded.")
     return model
 
-def detect_anomalies(model, X_test):
+def make_predictions(model, df, target_column):
     """
-    Detects anomalies using the trained model.
+    Makes predictions using the trained Prophet model.
 
     Args:
-        model (IsolationForest): The trained model.
-        X_test (pd.DataFrame): The test data.
+        model (Prophet): The trained Prophet model.
+        df (pd.DataFrame): The DataFrame to make predictions on.
+        target_column (str): The name of the target column.
 
     Returns:
-        pd.Series: A Series of anomaly scores.
+        pd.DataFrame: The DataFrame with predictions.
     """
-    logging.info("Detecting anomalies...")
-    anomaly_scores = model.decision_function(X_test)
-    logging.info("Anomalies detected.")
-    return anomaly_scores
+    logging.info("Making predictions...")
+    df = df.reset_index().rename(columns={'Datetime': 'ds'})
+    predictions = model.predict(df)
+    predictions = predictions[['ds', 'yhat']].rename(columns={'ds': 'Datetime', 'yhat': 'Prediction'})
+    predictions = predictions.set_index('Datetime')
+    logging.info("Predictions made.")
+    return predictions
 
-def is_anomaly(model, data_point):
+def evaluate_predictions(predictions, actual, target_column):
     """
-    Determines if a single data point is an anomaly.
+    Evaluates the predictions using Mean Absolute Error (MAE) and Root Mean Squared Error (RMSE).
 
     Args:
-        model (IsolationForest): The trained model.
-        data_point (pd.Series): A single data point.
-
-    Returns:
-        bool: True if the data point is an anomaly, False otherwise.
+        predictions (pd.DataFrame): The DataFrame with predictions.
+        actual (pd.DataFrame): The DataFrame with actual values.
+        target_column (str): The name of the target column.
     """
-    score = model.decision_function([data_point])
-    # Isolation forest returns negative values for anomalies.
-    return score < 0
+    logging.info("Evaluating predictions...")
+    mae = mean_absolute_error(actual[target_column], predictions['Prediction'])
+    rmse = mean_squared_error(actual[target_column], predictions['Prediction'], squared=False)
+    logging.info(f"Mean Absolute Error (MAE): {mae}")
+    logging.info(f"Root Mean Squared Error (RMSE): {rmse}")
 
 if __name__ == "__main__":
-    car_data = load_car_evaluation_data()
-    if car_data is not None:
-        X_train, X_test, y_train, y_test = preprocess_data(car_data.copy())
+    transport_data = load_public_transport_data()
+    if transport_data is not None:
+        target_column = 'Count'  # Replace with the actual target column name
+        train_data = transport_data.iloc[:-24]  # Use all but the last 24 hours for training
+        test_data = transport_data.iloc[-24:]   # Use the last 24 hours for testing
+        preprocessed_train_data = preprocess_data(train_data.copy(), target_column)
+        preprocessed_test_data = preprocess_data(test_data.copy(), target_column)
         model = load_model()
-        anomaly_scores = detect_anomalies(model, X_test)
-
-        # Example: Check if a specific data point is an anomaly
-        example_data_point = X_test.iloc[0]
-        if is_anomaly(model, example_data_point):
-            logging.info("Example data point is an anomaly.")
-        else:
-            logging.info("Example data point is not an anomaly.")
+        predictions = make_predictions(model, preprocessed_test_data, target_column)
+        evaluate_predictions(predictions, test_data, target_column)
     else:
         logging.error("Anomaly detection failed due to data loading error.")
